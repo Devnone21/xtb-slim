@@ -9,8 +9,8 @@ import enum
 import json
 import time
 from datetime import datetime
-from websocket import create_connection
-from websocket._exceptions import WebSocketConnectionClosedException
+from websockets.sync.client import connect
+from websockets.exceptions import WebSocketException
 
 LOGIN_TIMEOUT = 120
 MAX_TIME_INTERVAL = 0.200
@@ -135,6 +135,7 @@ class BaseClient(object):
             return func(*args, **kwargs)
         except SocketError as e:
             self.login(self._login_data[0], self._login_data[1])
+            print(self._login_data)
             return func(*args, **kwargs)
         except Exception as e:
             self.login(self._login_data[0], self._login_data[1])
@@ -148,7 +149,7 @@ class BaseClient(object):
         try:
             self.ws.send(json.dumps(dict_data))
             response = self.ws.recv()
-        except WebSocketConnectionClosedException:
+        except WebSocketException:
             raise SocketError()
         self._time_last_request = time.time()
         res = json.loads(response)
@@ -164,7 +165,7 @@ class BaseClient(object):
     def login(self, user_id, password, mode='demo'):
         """login command"""
         data = _get_data("login", userId=user_id, password=password)
-        self.ws = create_connection(f"wss://ws.xtb.com/{mode}")
+        self.ws = connect(f"wss://ws.xtb.com/{mode}")
         response = self._send_command(data)
         self._login_data = (user_id, password)
         self.status = STATUS.LOGGED
@@ -474,7 +475,12 @@ class Client(BaseClient):
             self._close_trade_only(trade_id)
 
 
-def indicator_signal(symbol, algo):
+import pandas as pd
+import pandas_ta as ta
+import firebase_admin as fba
+from firebase_admin import firestore
+
+def indicator_signal(symbol, strategy):
     today = datetime.today()
     mode = 'buy' if int(today.hour) % 2 == 1 else 'sell'
     cross = int(today.minute) % 2 == 1
@@ -494,16 +500,24 @@ def trigger_notify():
 
 # Settings.json
 settings = {
-    'racer': {'name': '15351881', 'shield': 'wx+-jLk*9Be!a%*', 'action': 'demo'},
+    'racer': {'name': '15351881', 'shield': '', 'action': 'demo'},
     'symbols': ['GOLD', 'EURUSD'],
-    'algorithm': 'EMA_50-SMA_200',
+    'strategy': 'EMA_50-SMA_200',
 }
+
+# Application Default credentials are automatically created.
+dba = fba.initialize_app()
+db = firestore.client()
+docs = db.collection("xtb-set").stream()
+for doc in docs:
+    k, v = doc.to_dict().popitem()
+    settings[k] = v
 
 # Initial connection
 racer = settings.get('racer')
 symbols = settings.get('symbols')
-algo = settings.get('algorithm')
-print(f'Prepare: {settings}')
+strategy = settings.get('strategy')
+
 client = Client()
 client.login(racer['name'], racer['shield'], mode=racer['action'])
 print('Enter the Gate.')
@@ -514,7 +528,7 @@ print(f'Ready: {market_status}')
 for symbol in market_status.keys():
     if not market_status[symbol]:
         continue
-    crossover, mode = indicator_signal(symbol, algo)
+    crossover, mode = indicator_signal(symbol, strategy)
     print(f'Signal: [{symbol}, {crossover}, {mode}]')
     if crossover:
         trigger_open_trade(symbol=symbol, mode=mode)
