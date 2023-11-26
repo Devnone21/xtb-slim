@@ -1,6 +1,6 @@
 pandas==2.0.0
 pandas-ta==0.3.14b0
-firebase-admin
+google-cloud==0.34.0
 python-dotenv==1.0.0
 redis==5.0.1
 websockets==12.0
