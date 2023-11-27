@@ -7,6 +7,7 @@ import os
 from datetime import datetime
 from dotenv import load_dotenv, find_dotenv
 from redis.client import Redis
+import cloud as gcp
 
 REDIS_HOST = 'localhost'
 REDIS_PORT = 6379
@@ -45,7 +46,7 @@ def indicator_signal(client, symbol, tech):
     # get charts
     period = 15
     now = int(time.time())
-    res = client.get_chart_range_request(symbol, period, now, now, -100)
+    res = client.get_chart_range_request(symbol, period, now, now, -1000)
     rate_infos = res['rateInfos']
     print(f'Info: recv {symbol} {len(rate_infos)} ticks.')
     # caching
@@ -78,7 +79,16 @@ def indicator_signal(client, symbol, tech):
 
 class Notify:
     def __init__(self):
+        self.ts = datetime.today().strftime('%Y-%m-%d %H:%M:%S')
         self.notes = ''
+
+    def setts(self, ts):
+        self.ts = ts
+        return ts
+
+    def add(self, message):
+        self.notes += f'{message}\n'
+        return message
 
 
 def trigger_open_trade(client, symbol, mode='buy', volume=0.1):
@@ -123,23 +133,25 @@ def run():
 
     # Check if market is open
     market_status = client.check_if_market_open(symbols)
-    msg = f'Market status: {market_status}'
+    msg = notify.add(f'Market status: {market_status}')
     print(msg)
     for symbol in market_status.keys():
         if not market_status[symbol]:
             continue
         # Market open, check signal
         signal = indicator_signal(client, symbol, tech)
-        ts = datetime.fromtimestamp(int(signal.get("epoch_ms"))/1000)
         opentx = signal.get("open")
         mode = signal.get("mode")
-        msg = f'Signal: [{symbol}, {ts}, {opentx}, {mode}]'
+        ts = notify.setts(datetime.fromtimestamp(int(signal.get("epoch_ms"))/1000))
+        msg = notify.add(f'Signal: [{symbol}, {ts}, {opentx}, {mode}]')
         print(msg)
+        # Check signal to open transaction
         if opentx:
             trigger_open_trade(client, symbol=symbol, mode=mode, volume=volume)
-            msg = f'Open: [{symbol}, {ts}, {mode}, {volume}]'
+            msg = notify.add(f'Open: [{symbol}, {ts}, {mode}, {volume}]')
             print(msg)
-
+    
+    # gcp.pub(notify.notes)
     client.logout()
 
 
