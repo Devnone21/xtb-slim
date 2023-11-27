@@ -76,9 +76,9 @@ def indicator_signal(client, symbol, tech):
     return {"epoch_ms": epoch_ms, "open": opentx, "mode": mode}
 
 
-def notify(message):
-    print(message)
-    return
+class Notify:
+    def __init__(self):
+        self.notes = ''
 
 
 def trigger_open_trade(client, symbol, mode='buy', volume=0.1):
@@ -86,7 +86,7 @@ def trigger_open_trade(client, symbol, mode='buy', volume=0.1):
         client.open_trade(mode, symbol, volume)
         return True
     except TransactionRejected:
-        # notify('Exception: transaction rejected!')
+        print('Exception: transaction rejected!')
         return False
 
 
@@ -118,11 +118,13 @@ volume = 0.1
 def run():
     client = Client()
     client.login(racer['name'], racer['shield'], mode=racer['action'])
+    notify = Notify()
     print('Enter the Gate.')
 
     # Check if market is open
     market_status = client.check_if_market_open(symbols)
-    notify(f'Market status: {market_status}')
+    msg = f'Market status: {market_status}'
+    print(msg)
     for symbol in market_status.keys():
         if not market_status[symbol]:
             continue
@@ -131,10 +133,12 @@ def run():
         ts = datetime.fromtimestamp(int(signal.get("epoch_ms"))/1000)
         opentx = signal.get("open")
         mode = signal.get("mode")
-        notify(f'Signal: [{symbol}, {ts}, {opentx}, {mode}]')
+        msg = f'Signal: [{symbol}, {ts}, {opentx}, {mode}]'
+        print(msg)
         if opentx:
             trigger_open_trade(client, symbol=symbol, mode=mode, volume=volume)
-            notify(f'Open: [{symbol}, {ts}, {mode}, {volume}]')
+            msg = f'Open: [{symbol}, {ts}, {mode}, {volume}]'
+            print(msg)
 
     client.logout()
 
