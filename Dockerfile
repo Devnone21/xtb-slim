@@ -16,15 +16,3 @@ COPY ./api.py .
 COPY ./macd_crossover.py .
 
 CMD [ "python", "-u", "./macd_crossover.py" ]
-
-# FROM python:3.10-slim
-
-# WORKDIR /usr/src/app
-
-# COPY requirements.txt ./
-# RUN pip install --no-cache-dir -r requirements.txt
-# RUN pip install websockets
-
-# COPY ./main.py .
-
-# CMD [ "python", "./main.py" ]
