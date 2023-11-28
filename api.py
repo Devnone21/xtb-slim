@@ -312,6 +312,11 @@ class BaseClient(object):
         # check sl & tp
         stop_loss = float(stop_loss)
         take_profit = float(take_profit)
+        # new check sl & tp
+        from decimal import Decimal
+        price = kwargs.pop('price', 0.0)
+        stop_loss = float(Decimal(str(stop_loss)).quantize(Decimal(str(price))))
+        take_profit = float(Decimal(str(take_profit)).quantize(Decimal(str(price))))
         # check kwargs
         accepted_values = ['order', 'price', 'expiration', 'customComment',
                            'offset', 'sl', 'tp']

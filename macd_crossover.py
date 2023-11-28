@@ -76,6 +76,7 @@ def indicator_signal(client, symbol):
     period = 15
     now = int(time.time())
     res = client.get_chart_range_request(symbol, period, now, now, -100)
+    digits = res['digits']
     rate_infos = res['rateInfos']
     print(f'Info: recv {symbol} {len(rate_infos)} ticks.')
     # caching
@@ -93,7 +94,7 @@ def indicator_signal(client, symbol):
     # tech calculation
     rate_infos.sort(key=lambda x: x['ctm'])
     candles = pd.DataFrame(rate_infos)
-    candles['close'] = candles['close'] + candles['open']
+    candles['close'] = (candles['close'] + candles['open']) / 10 ** digits
     print(f'Info: got {symbol} {len(candles)} ticks.')
     ta_strategy = ta.Strategy(
         name="Multi-Momo",
