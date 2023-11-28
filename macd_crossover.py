@@ -78,7 +78,7 @@ def indicator_signal(client, symbol, tech):
     print(f'Info: cleaned {symbol} {len(candles)} ticks.')
     # evaluate
     opentx, mode = macd_cross(candles)
-    return {"epoch_ms": epoch_ms, "open": opentx, "mode": mode}
+    return candles, {"epoch_ms": epoch_ms, "open": opentx, "mode": mode}
 
 
 class Notify:
@@ -143,11 +143,11 @@ def run():
         if not market_status[symbol]:
             continue
         # Market open, check signal
-        signal = indicator_signal(client, symbol, tech)
+        df, signal = indicator_signal(client, symbol, tech)
         opentx = signal.get("open")
         mode = signal.get("mode")
         ts = notify.setts(datetime.fromtimestamp(int(signal.get("epoch_ms"))/1000))
-        msg = notify.add(f'Signal: [{symbol}, {ts}, {opentx}, {mode}]')
+        msg = notify.add(f'Signal: [{symbol}, {ts}, {opentx}, {mode}, {df['close']}]')
         print(msg)
         # Check signal to open transaction
         if opentx:
