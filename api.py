@@ -327,6 +327,7 @@ class BaseClient(object):
             'tp': take_profit
         }
         info.update(kwargs)  # update with kwargs parameters
+        print(f"tradeTransInfo={info}")
         data = _get_data("tradeTransaction", tradeTransInfo=info)
         name_of_mode = [x.name for x in MODES if x.value == mode][0]
         name_of_type = [x.name for x in TRANS_TYPES if x.value ==

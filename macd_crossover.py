@@ -152,6 +152,7 @@ def run():
         ts = notify.setts(datetime.fromtimestamp(int(signal.get("epoch_ms"))/1000))
         msg = notify.add(f'Signal: {symbol}, {ts}, {opentx}, {mode}, {close}')
         print(msg)
+        print(df.tail())
         # Check signal to open transaction
         if opentx:
             res = trigger_open_trade(client, symbol=symbol, mode=mode)
