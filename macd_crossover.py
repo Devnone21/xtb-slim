@@ -144,15 +144,16 @@ def run():
             continue
         # Market open, check signal
         df, signal = indicator_signal(client, symbol, tech)
+        close = df.iloc[-1]['close']
         opentx = signal.get("open")
         mode = signal.get("mode")
         ts = notify.setts(datetime.fromtimestamp(int(signal.get("epoch_ms"))/1000))
-        msg = notify.add(f'Signal: [{symbol}, {ts}, {opentx}, {mode}, {df['close']}]')
+        msg = notify.add(f'Signal: {symbol}, {ts}, {opentx}, {mode}, {close}')
         print(msg)
         # Check signal to open transaction
         if opentx:
             trigger_open_trade(client, symbol=symbol, mode=mode, volume=volume)
-            msg = notify.add(f'Open: [{symbol}, {ts}, {mode}, {volume}]')
+            msg = notify.add(f'>> Open: {symbol}, {ts}, {mode}, {volume}')
             print(msg)
 
     client.logout()
