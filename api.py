@@ -425,7 +425,7 @@ class Client(BaseClient):
         profit = self.trade_rec[trans_id].actual_profit
         return profit
 
-    def open_trade(self, mode, symbol, volume):
+    def open_trade(self, mode, symbol, volume, **kwargs):
         """open trade transaction"""
         if mode in [MODES.BUY.value, MODES.SELL.value]:
             mode = [x for x in MODES if x.value == mode][0]
@@ -438,7 +438,18 @@ class Client(BaseClient):
         mode_value = mode.value
         conversion_mode = {MODES.BUY.value: 'ask', MODES.SELL.value: 'bid'}
         price = self.get_symbol(symbol)[conversion_mode[mode_value]]
-        response = self.trade_transaction(symbol, mode_value, 0, volume, price=price)
+        # safeguard
+        rate_tp = kwargs.pop("rate_tp", 0)
+        rate_sl = kwargs.pop("rate_sl", 0)
+        tp = sl = 0
+        if mode_value == MODES.BUY.value:
+            tp = price * (1 + rate_tp) if rate_tp else 0
+            sl = price * (1 - rate_sl) if rate_sl else 0
+        elif mode_value == MODES.SELL.value:
+            tp = price * (1 - rate_tp) if rate_tp else 0
+            sl = price * (1 + rate_sl) if rate_sl else 0
+        response = self.trade_transaction(symbol, mode_value, 0, volume,
+                                          price=price, take_profit=tp, stop_loss=sl)
         self.update_trades()
         status = self.trade_transaction_status(response['order'])[
             'requestStatus']

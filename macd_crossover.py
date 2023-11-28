@@ -10,14 +10,42 @@ from redis.client import Redis
 from redis.exceptions import ConnectionError
 import cloud as gcp
 
-REDIS_HOST = 'localhost'
-REDIS_PORT = 6379
+# Settings.json
+settings = {
+    'symbols': ['GOLD', 'GBPUSD', 'EURUSD'],
+    'tech': [
+        {"kind": "ema", "length": 8},
+        {"kind": "ema", "length": 21},
+        {
+            "kind": "macd", "fast": 8, "slow": 21, "signal_indicators": True,
+            "colnames": ('MACD', 'MACDh', 'MACDs', 'MACDh_XA0', 'MACDh_XB0', 'MACDh_A0'),
+        },
+    ],
+    'volume': 0.1,
+    'rate_tp': 0.2,
+    'rate_sl': 0.1,
+}
+
+# Initial connection
+load_dotenv(find_dotenv())
+r_name = os.getenv("RACE_NAME")
+r_pass = os.getenv("RACE_PASS")
+r_mode = os.getenv("RACE_MODE")
+symbols = settings.get('symbols')
+tech = settings.get('tech')
+volume = settings.get('volume')
+rate_tp = settings.get('rate_tp')
+rate_sl = settings.get('rate_sl')
 
 
 class Cache:
     def __init__(self):
         self.ttl_s = 604_800
-        self.client = Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
+        self.client = Redis(
+            host=os.getenv("REDIS_HOST"),
+            port=os.getenv("REDIS_PORT"),
+            decode_responses=True
+        )
 
     def set_key(self, key, value):
         self.client.set(key, json.dumps(value), ex=self.ttl_s)
@@ -43,11 +71,11 @@ def macd_cross(df):
     return opentx, mode
 
 
-def indicator_signal(client, symbol, tech):
+def indicator_signal(client, symbol):
     # get charts
     period = 15
     now = int(time.time())
-    res = client.get_chart_range_request(symbol, period, now, now, -1000)
+    res = client.get_chart_range_request(symbol, period, now, now, -100)
     rate_infos = res['rateInfos']
     print(f'Info: recv {symbol} {len(rate_infos)} ticks.')
     # caching
@@ -95,43 +123,18 @@ class Notify:
         return message
 
 
-def trigger_open_trade(client, symbol, mode='buy', volume=0.1):
+def trigger_open_trade(client, symbol, mode='buy'):
     try:
-        client.open_trade(mode, symbol, volume)
+        client.open_trade(mode, symbol, volume, rate_tp=rate_tp, rate_sl=rate_sl)
         return True
     except TransactionRejected:
         print('Exception: transaction rejected!')
         return False
 
 
-# Settings.json
-load_dotenv(find_dotenv())
-r_name = os.getenv("RACE_NAME")
-r_pass = os.getenv("RACE_PASS")
-r_mode = os.getenv("RACE_MODE")
-settings = {
-    'racer': {'name': r_name, 'shield': r_pass, 'action': r_mode},
-    'symbols': ['GOLD', 'GBPUSD', 'EURUSD'],
-    'tech': [
-        {"kind": "ema", "length": 8},
-        {"kind": "ema", "length": 21},
-        {
-            "kind": "macd", "fast": 8, "slow": 21, "signal_indicators": True,
-            "colnames": ('MACD', 'MACDh', 'MACDs', 'MACDh_XA0', 'MACDh_XB0', 'MACDh_A0'),
-        },
-    ]
-}
-
-# Initial connection
-racer = settings.get('racer')
-symbols = settings.get('symbols')
-tech = settings.get('tech')
-volume = 0.1
-
-
 def run():
     client = Client()
-    client.login(racer['name'], racer['shield'], mode=racer['action'])
+    client.login(r_name, r_pass, mode=r_mode)
     notify = Notify()
     print('Enter the Gate.')
 
@@ -143,7 +146,7 @@ def run():
         if not market_status[symbol]:
             continue
         # Market open, check signal
-        df, signal = indicator_signal(client, symbol, tech)
+        df, signal = indicator_signal(client, symbol)
         close = df.iloc[-1]['close']
         opentx = signal.get("open")
         mode = signal.get("mode")
@@ -152,7 +155,7 @@ def run():
         print(msg)
         # Check signal to open transaction
         if opentx:
-            trigger_open_trade(client, symbol=symbol, mode=mode, volume=volume)
+            trigger_open_trade(client, symbol=symbol, mode=mode)
             msg = notify.add(f'>> Open: {symbol}, {ts}, {mode}, {volume}')
             print(msg)
 
