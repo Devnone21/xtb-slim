@@ -125,11 +125,10 @@ class Notify:
 
 def trigger_open_trade(client, symbol, mode='buy'):
     try:
-        client.open_trade(mode, symbol, volume, rate_tp=rate_tp, rate_sl=rate_sl)
-        return True
-    except TransactionRejected:
-        print('Exception: transaction rejected!')
-        return False
+        return client.open_trade(mode, symbol, volume, rate_tp=rate_tp, rate_sl=rate_sl)
+    except TransactionRejected as e:
+        # print(f'Exception: transaction rejected! {e}')
+        return e
 
 
 def run():
@@ -155,8 +154,8 @@ def run():
         print(msg)
         # Check signal to open transaction
         if opentx:
-            trigger_open_trade(client, symbol=symbol, mode=mode)
-            msg = notify.add(f'>> Open: {symbol}, {ts}, {mode}, {volume}')
+            res = trigger_open_trade(client, symbol=symbol, mode=mode)
+            msg = notify.add(f'>> Open: {symbol}, {ts}, {mode}, {volume}, {res}')
             print(msg)
 
     client.logout()
