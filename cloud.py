@@ -1,13 +1,12 @@
 import os
-from google import pubsub_v1
-from google.auth import api_key
+from google.cloud import pubsub_v1
+
 
 def pub(message):
-    creds = api_key.Credentials(api_key=os.getenv('GOOGLE_API_KEY'))
-    publisher = pubsub_v1.PublisherClient(credentials=creds,)
-    topic_name = 'projects/{project_id}/topics/{topic}'.format(
-        project_id=os.getenv('GOOGLE_CLOUD_PROJECT'),
+    client = pubsub_v1.PublisherClient()
+    topic_path = client.topic_path(
+        project=os.getenv('GOOGLE_CLOUD_PROJECT'),
         topic=os.getenv('GOOGLE_PUBSUB_TOPIC'),
     )
-    future = publisher.publish(topic_name, bytes(message, encoding="utf-8"), spam='eggs')
+    future = client.publish(topic_path, str(message).encode(), attr='ATTR VALUE')
     future.result()

@@ -7,6 +7,7 @@ import os
 from datetime import datetime
 from dotenv import load_dotenv, find_dotenv
 from redis.client import Redis
+from redis.exceptions import ConnectionError
 import cloud as gcp
 
 REDIS_HOST = 'localhost'
@@ -50,14 +51,17 @@ def indicator_signal(client, symbol, tech):
     rate_infos = res['rateInfos']
     print(f'Info: recv {symbol} {len(rate_infos)} ticks.')
     # caching
-    cache = Cache()
-    for ctm in rate_infos:
-        cache.set_key(f'{symbol}_{period}:{ctm["ctm"]}', ctm)
-    ctm_prefix = range(((now - 360_000) // 100_000), (now // 100_000)+1)
-    rate_infos = []
-    for pre in ctm_prefix:
-        mkey = cache.client.keys(pattern=f'{symbol}_{period}:{pre}*')
-        rate_infos.extend(cache.get_keys(mkey))
+    try:
+        cache = Cache()
+        for ctm in rate_infos:
+            cache.set_key(f'{symbol}_{period}:{ctm["ctm"]}', ctm)
+        ctm_prefix = range(((now - 360_000) // 100_000), (now // 100_000)+1)
+        rate_infos = []
+        for pre in ctm_prefix:
+            mkey = cache.client.keys(pattern=f'{symbol}_{period}:{pre}*')
+            rate_infos.extend(cache.get_keys(mkey))
+    except ConnectionError as e:
+        print(e)
     # tech calculation
     rate_infos.sort(key=lambda x: x['ctm'])
     candles = pd.DataFrame(rate_infos)
@@ -150,9 +154,9 @@ def run():
             trigger_open_trade(client, symbol=symbol, mode=mode, volume=volume)
             msg = notify.add(f'Open: [{symbol}, {ts}, {mode}, {volume}]')
             print(msg)
-    
-    # gcp.pub(notify.notes)
+
     client.logout()
+    gcp.pub(notify.notes)
 
 
 if __name__ == '__main__':
